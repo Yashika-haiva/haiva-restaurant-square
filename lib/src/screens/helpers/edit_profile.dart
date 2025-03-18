@@ -84,7 +84,8 @@ class _EditProfileState extends State<EditProfile> {
       elevation: 0,
       backgroundColor: primaryColor,
       title: const Text('Edit Profile',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          style: TextStyle(
+              color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 16.0),
@@ -100,7 +101,7 @@ class _EditProfileState extends State<EditProfile> {
                     color: Colors.white, size: 16),
                 const SizedBox(width: 4),
                 Text(
-                  "\$$formattedBalance",
+                  isLoading ? "\$0.00" : "\$$formattedBalance",
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -194,6 +195,7 @@ class _EditProfileState extends State<EditProfile> {
                     TextField(
                       controller: _nameController,
                       decoration: InputDecoration(
+                        isDense: true,
                         labelText: 'Display Name',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(5),
@@ -222,6 +224,7 @@ class _EditProfileState extends State<EditProfile> {
                     TextField(
                       controller: _descriptionController,
                       decoration: InputDecoration(
+                        isDense: true,
                         labelText: 'Description',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(5),
@@ -245,29 +248,57 @@ class _EditProfileState extends State<EditProfile> {
                         ),
                         prefixIcon: const Icon(Icons.description),
                       ),
-                      maxLines: 4,
+                      maxLines: 2,
                     ),
                     const SizedBox(height: 24),
                     const Divider(),
                     const SizedBox(height: 16),
-                    ListTile(
-                      leading: const Icon(Icons.record_voice_over),
-                      title: const Text('Voice / Telephony'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () {
-                        StorageService().createAndUpdateKeyValuePairInStorage(
-                            "display_name", _nameController.value.text);
-                        StorageService().createAndUpdateKeyValuePairInStorage(
-                            "description", _descriptionController.value.text);
-                        StorageService().createAndUpdateKeyValuePairInStorage(
-                            "image", imageUrl);
-                        context.push("/${Routes.home.name}");
-                      },
-                    ),
+                    // ListTile(
+                    //   leading: const Icon(Icons.record_voice_over),
+                    //   title: const Text('Voice / Telephony'),
+                    //   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    //   onTap: () {
+                    //     StorageService().createAndUpdateKeyValuePairInStorage(
+                    //         "display_name", _nameController.value.text);
+                    //     StorageService().createAndUpdateKeyValuePairInStorage(
+                    //         "description", _descriptionController.value.text);
+                    //     StorageService().createAndUpdateKeyValuePairInStorage(
+                    //         "image", imageUrl);
+                    //     context.push("/${Routes.home.name}");
+                    //   },
+                    // ),
                   ],
                 ),
               ),
             ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton(
+            onPressed: () {
+              StorageService().createAndUpdateKeyValuePairInStorage(
+                  "display_name", _nameController.value.text);
+              StorageService().createAndUpdateKeyValuePairInStorage(
+                  "description", _descriptionController.value.text);
+              StorageService()
+                  .createAndUpdateKeyValuePairInStorage("image", imageUrl);
+              context.push("/${Routes.home.name}");
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              minimumSize: const Size(double.infinity, 40),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Proceed to Voice / Telephony'),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_circle_right_outlined, color: whiteColor),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -49,10 +49,10 @@ class _ReDeployAgentState extends State<ReDeployAgent> {
       print(
           widget.agentData['agent_configs']['telephony_configs']['auth_token']);
       if (isSidThere && isATokenThere) {
-        linkPhoneNumber(agentId);
+        linkPhoneNumberOnRedeploy(agentId);
         callSnackBar(response, "Deployment started!");
       } else {
-        assignTelephony(agentId);
+        assignTelephonyOnRedeploy(agentId);
       }
     } else {
       callSnackBar(response, "Deployment aborted!");
@@ -60,7 +60,7 @@ class _ReDeployAgentState extends State<ReDeployAgent> {
     }
   }
 
-  linkPhoneNumber(String agentId) async {
+  linkPhoneNumberOnRedeploy(String agentId) async {
     final requestBody = {
       "agentId": agentId,
       "isLinked": true,
@@ -89,14 +89,14 @@ class _ReDeployAgentState extends State<ReDeployAgent> {
               '';
       print('oay $isAToken $isSid $isPhone');
       if (isAToken && isSid && isPhone) {
-        assignTelephony(agentId);
+        assignTelephonyOnRedeploy(agentId);
       } else {
-        startDeployStatusCheck(agentId);
+        startDeployStatusCheckOnRedeploy(agentId);
       }
     }
   }
 
-  void startDeployStatusCheck(String agentId) {
+  void startDeployStatusCheckOnRedeploy(String agentId) {
     Timer? timer;
     void checkDeployStatus() async {
       final response = await APIService().getDeployStatus(agentId);
@@ -133,7 +133,7 @@ class _ReDeployAgentState extends State<ReDeployAgent> {
     context.go("/${Routes.dashboard.name}");
   }
 
-  assignTelephony(String agentId) async {
+  assignTelephonyOnRedeploy(String agentId) async {
     bool isActiveListen = widget.agentData['agent_configs']['telephony_configs']
             ['enable_active_listening'] ==
         true;
@@ -153,7 +153,7 @@ class _ReDeployAgentState extends State<ReDeployAgent> {
     print(response.body);
     print(response.statusCode);
     if (response.statusCode == 200) {
-      startDeployStatusCheck(agentId);
+      startDeployStatusCheckOnRedeploy(agentId);
     }
   }
 

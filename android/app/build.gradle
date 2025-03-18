@@ -60,7 +60,7 @@ android {
         release {
             keyAlias 'my-key-alias'
             keyPassword 'haivazoho'
-            storeFile file('/Users/mackbookpro/Documents/GitHub/haiva-zoho/my-release-key.jks')
+            storeFile file('../../my-release-key.jks')
             storePassword 'haivazoho'
         }
     }

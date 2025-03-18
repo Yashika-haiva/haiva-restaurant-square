@@ -13,7 +13,7 @@ final agentTheme = ThemeData(
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ButtonStyle(
       textStyle: WidgetStateProperty.all(
-        textStyleS18W500.copyWith(color: whiteColor),
+        textStyleS14W400.copyWith(color: whiteColor),
       ),
       backgroundColor: WidgetStateProperty.resolveWith<Color>(
         (states) =>
@@ -22,7 +22,7 @@ final agentTheme = ThemeData(
                 : primaryColor,
       ),
       padding: WidgetStateProperty.all(
-        const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       ),
       foregroundColor: WidgetStateProperty.resolveWith<Color>(
         (states) => whiteColor,

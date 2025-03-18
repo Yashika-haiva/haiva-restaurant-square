@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:haivazoho/src/service/balance.dart';
 import '../screens/side_nav_bar.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../service/api_service.dart';
+import '../service/get_balance.dart';
+import '../service/mongoDb.dart';
 import '../service/storage_service.dart';
 import '../shared/consts.dart';
 import '../shared/enum.dart';
@@ -50,7 +53,7 @@ class _DashboardState extends State<Dashboard> {
         final responseBody = decodedResponse;
         setState(() {
           conversationCount = responseBody['countByWsAndAgents']
-          ['Agent for Restaurants - Square']['Agent for Restaurants'];
+              ['Agent for Restaurants - Square']['Agent for Restaurants'];
         });
       }
 
@@ -62,7 +65,7 @@ class _DashboardState extends State<Dashboard> {
         print(response.body);
         setState(() {
           transcriptsCount = responseBody1['countByWsAndAgents']
-          ['Agent for Restaurants - Square']['Agent for Restaurants'];
+              ['Agent for Restaurants - Square']['Agent for Restaurants'];
         });
       }
       final responseForAgent = await APIService().getAgentDetails(agentId);
@@ -134,38 +137,34 @@ class _DashboardState extends State<Dashboard> {
                   Text(
                     "Agent Overview",
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.blueGrey[800],
                     ),
                   ),
                   const SizedBox(height: 16),
                   _buildAgentCard(),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Center(
-                      child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 50),
-                          ),
-                          onPressed: () {
-                            context.push('/${Routes.editProfile.name}');
-                          },
-                          child: const Text(
-                            "Edit Agent",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 16,
-                            ),
-                          )),
-                    ),
-                  ),
+                  // const SizedBox(height: 16),
+                  // Padding(
+                  //   padding: const EdgeInsets.symmetric(horizontal: 16),
+                  //   child: Center(
+                  //     child: ElevatedButton(
+                  //         style: ElevatedButton.styleFrom(
+                  //           minimumSize: const Size(double.infinity, 40),
+                  //         ),
+                  //         onPressed: () {
+                  //           context.push('/${Routes.editProfile.name}');
+                  //         },
+                  //         child: const Text(
+                  //           "Edit Agent",
+                  //         )),
+                  //   ),
+                  // ),
                   const SizedBox(height: 24),
                   Text(
                     "Analytics",
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.blueGrey[800],
                     ),
@@ -174,6 +173,7 @@ class _DashboardState extends State<Dashboard> {
                   _buildAnalyticsCards(),
                   // const SizedBox(height: 24),
                   // _buildRecentActivitySection(),
+                  // CreditsBalanceWidget(),
                 ],
               ),
             ),
@@ -183,7 +183,7 @@ class _DashboardState extends State<Dashboard> {
         child: Container(
           decoration: BoxDecoration(
             color: primaryColor,
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(15),
           ),
           child: IconButton(
               onPressed: () async {
@@ -194,10 +194,13 @@ class _DashboardState extends State<Dashboard> {
                 // print(
                 //     await StorageService().getValueFromStorage("workspace_id"));
               },
-              icon: const Icon(
-                Icons.call,
-                size: 32,
-                color: whiteColor,
+              icon: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(
+                  Icons.call,
+                  size: 32,
+                  color: whiteColor,
+                ),
               )),
         ),
       ),
@@ -221,7 +224,8 @@ class _DashboardState extends State<Dashboard> {
       elevation: 0,
       backgroundColor: primaryColor,
       title: const Text('Dashboard',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          style: TextStyle(
+              color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
       actions: [
         IconButton(
           icon: const Icon(Icons.notifications_outlined, color: Colors.white),
@@ -241,7 +245,7 @@ class _DashboardState extends State<Dashboard> {
                     color: Colors.white, size: 16),
                 const SizedBox(width: 4),
                 Text(
-                  "\$$formattedBalance",
+                  isLoading? "\$0.00":"\$$formattedBalance",
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -261,65 +265,86 @@ class _DashboardState extends State<Dashboard> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Row(
+        child: Stack(
           children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: CircleAvatar(
-                radius: 40,
-                backgroundImage: NetworkImage(imageUrl),
-              ),
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundImage: NetworkImage(imageUrl),
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Smart Integration Agent",
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            description,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildFeatureChip(Icons.chat, "Chat", isTextChat),
+                    const SizedBox(width: 8),
+                    _buildFeatureChip(Icons.mic, "Voice", isVoiceChat),
+                    const SizedBox(width: 8),
+                    _buildFeatureChip(Icons.call, "Call", isCall),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Smart Integration Agent",
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _buildFeatureChip(Icons.chat, "Chat", isTextChat),
-                      const SizedBox(width: 8),
-                      _buildFeatureChip(Icons.mic, "Voice", isVoiceChat),
-                      const SizedBox(width: 8),
-                      _buildFeatureChip(Icons.call, "Call", isCall),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            Positioned(
+                top: -8,
+                left: width - 124,
+                child: IconButton(
+                    onPressed: () {
+                      context.push('/${Routes.editProfile.name}');
+                    },
+                    icon: const Icon(
+                      Icons.edit,
+                      color: primaryColor,
+                      size: 26,
+                    ))),
           ],
         ),
       ),
@@ -543,3 +568,32 @@ class _DashboardState extends State<Dashboard> {
 //   );
 // }
 }
+
+// class DataList extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return FutureBuilder<List<MyData>>(
+//       future: getData(),
+//       builder: (context, snapshot) {
+//         if (snapshot.connectionState == ConnectionState.waiting) {
+//           return CircularProgressIndicator();
+//         } else if (snapshot.hasError) {
+//           return Text('Error: ${snapshot.error}');
+//         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+//           return Text('No data found.');
+//         } else {
+//           final data = snapshot.data!;
+//           return ListView.builder(
+//             itemCount: data.length,
+//             itemBuilder: (context, index) {
+//               return ListTile(
+//                 title: Text(data[index].name),
+//                 subtitle: Text('Age: ${data[index].age}'),
+//               );
+//             },
+//           );
+//         }
+//       },
+//     );
+//   }
+// }

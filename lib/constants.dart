@@ -9,3 +9,6 @@ class Constants {
 }
 final String haivaTest = 'https://488a-14-99-174-78.ngrok-free.app/v1/flowBuilder/chat';
 final String haivaProd = 'https://services.haiva.ai/v1/flowBuilder/chat';
+
+const String mongoUrl = "";
+const String myCollection = "";

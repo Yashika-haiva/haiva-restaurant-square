@@ -23,6 +23,7 @@ class _LoginState extends State<Login> {
   // String _mobileNumber = '';
   // bool _isPermissionGranted = false;
   // List<SimCard> _simCard = <SimCard>[];
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -69,87 +70,78 @@ class _LoginState extends State<Login> {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     return Scaffold(
-      body: Stack(
-        children: [
-          // Positioned.fill(
-          //   child: Container(
-          //     decoration: BoxDecoration(
-          //       gradient: LinearGradient(
-          //         colors: [
-          //           const Color(0xFF19437D).withOpacity(0.5),
-          //           Colors.transparent,
-          //         ],
-          //         begin: Alignment.bottomCenter,
-          //         end: Alignment.topCenter,
-          //       ),
-          //     ),
-          //   ),
-          // ),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  'assets/images/login.png',
+      body: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/login.png',
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                textAlign: TextAlign.center,
+                'Haiva Agent for Restaurants Integrated with Square',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  textAlign: TextAlign.center,
-                  'Haiva Agent for Restaurants Integrated with Square',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 40),
                   ),
+                  onPressed: () async {
+                    setState(() {
+                      isLoading = true;
+                    });
+                    await authService.login();
+                    if (await authService.isAuthenticated()) {
+                      goToImport();
+                    }
+                    // StorageService().deleteAllValuesFromStorage();
+                  },
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator())
+                      : const Text(
+                          'Get Started',
+                        ),
                 ),
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                    onPressed: () async {
-                      await authService.login();
-                      if (await authService.isAuthenticated()) {
-                        goToImport();
-                      }
-                      // StorageService().deleteAllValuesFromStorage();
-                    },
-                    child: const Text(
-                      'Get Started',
-                      style: TextStyle(fontSize: 18, color: whiteColor),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
+            const Text(
               "Powered by",
-              style: textStyleS18W600,
+              style: textStyleS12W400,
             ),
-            SizedBox(
+            const SizedBox(
               height: 8,
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset('assets/images/haiva.png', height: 56, width: 56),
-                Text(
+                Image.asset('assets/images/haiva.png', height: 40, width: 40),
+                const Text(
                   "Haiva",
-                  style: textStyleS28W700,
+                  style: textStyleS20W700,
                 )
               ],
             ),
-            SizedBox(
+            const SizedBox(
               height: 16,
             ),
           ],
@@ -159,6 +151,9 @@ class _LoginState extends State<Login> {
   }
 
   goToImport() {
+    setState(() {
+      isLoading = false;
+    });
     context.go("/${Routes.import.name}");
   }
 }

@@ -36,8 +36,6 @@ class _RequestPermissionsState extends State<RequestPermissions> {
     ));
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,10 +60,11 @@ class _RequestPermissionsState extends State<RequestPermissions> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
+                textAlign: TextAlign.justify,
                 'We ask to allow the required permissions for the functionality of application',
                 style: TextStyle(
                   fontWeight: FontWeight.w400,
-                  fontSize: 18,
+                  fontSize: 16,
                   color: blackColor, // Use your color here
                 ),
               ),
@@ -88,9 +87,7 @@ class _RequestPermissionsState extends State<RequestPermissions> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(100.0),
                     ),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    minimumSize: const Size.fromHeight(56.0),
+                    minimumSize: const Size.fromHeight(40.0),
                   ),
                   onPressed: () async {
                     // Request permissions here
@@ -112,10 +109,6 @@ class _RequestPermissionsState extends State<RequestPermissions> {
                   },
                   child: const Text(
                     "Allow",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
                   ),
                 ),
               ),
@@ -145,7 +138,7 @@ class _RequestPermissionsState extends State<RequestPermissions> {
             permissionName,
             style: const TextStyle(
               fontWeight: FontWeight.w400,
-              fontSize: 18,
+              fontSize: 16,
               color: blackColor,
             ),
           ),

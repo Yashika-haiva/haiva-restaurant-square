@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../service/auth_service.dart';
 import '../service/storage_service.dart';
@@ -23,7 +22,6 @@ class _SideNavBarState extends State<SideNavBar> with RestorationMixin {
   }
 
   Future<void> _showLogoutConfirmationDialog() async {
-    final authService = Provider.of<AuthService>(context);
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -56,7 +54,7 @@ class _SideNavBarState extends State<SideNavBar> with RestorationMixin {
                   ),
                 ),
                 onPressed: () async {
-                  await authService.logout();
+                  await AuthService().logout();
                   await StorageService().deleteTokenStorage();
                   // StorageService().deleteAllValuesFromStorage();
                   // StorageService()

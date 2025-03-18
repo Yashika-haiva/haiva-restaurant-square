@@ -23,12 +23,13 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   String? _selectedPhoneNumber;
   String? _selectedTwilioPhoneNumber;
   bool areAllFieldsFilled = false;
+  bool isNumberNotNull = false;
   bool isTwilioActive = false;
   List<Map<String, dynamic>> availableHaivaPhoneNumbers = [];
   List<String> availableTwilioPhoneNumbers = [];
   bool _isFieldsVisible = true;
   var agentConfigs = {};
-  String formattedBalance = '';
+  String formattedBalance = "\$0.00";
 
   final TextEditingController _accountSidController = TextEditingController();
   final TextEditingController _authTokenController = TextEditingController();
@@ -55,6 +56,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
     });
     getHaivaNumbers();
     getAgentTemplate();
+    getBalance();
   }
 
   getAgentTemplate() async {
@@ -72,6 +74,19 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
     }
   }
 
+  getBalance() async {
+    final responseForBalance = await APIService().getBalance();
+    if (responseForBalance.statusCode == 200) {
+      final decodedResponseForBalance =
+          jsonDecode(utf8.decode(responseForBalance.bodyBytes));
+      final responseBodyForAgent = decodedResponseForBalance;
+      setState(() {
+        final balance = responseBodyForAgent['availableBalance'] ?? 0.00;
+        formattedBalance = balance.toStringAsFixed(2);
+      });
+    }
+  }
+
   getHaivaNumbers() async {
     final response = await APIService().getAvailableHaivaNumbers();
 
@@ -86,17 +101,6 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
             'isLinked': item['isLinked'],
           };
         }).toList();
-      });
-    }
-
-    final responseForBalance = await APIService().getBalance();
-    if (responseForBalance.statusCode == 200) {
-      final decodedResponseForBalance =
-          jsonDecode(utf8.decode(responseForBalance.bodyBytes));
-      final responseBodyForAgent = decodedResponseForBalance;
-      setState(() {
-        final balance = responseBodyForAgent['availableBalance'] ?? 0.00;
-        formattedBalance = balance.toStringAsFixed(2);
       });
     }
   }
@@ -200,13 +204,20 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                             ['is_connection_verified'] = false;
                         _selectedPhoneNumber = newValue;
                       });
+                      isNumberThere();
                     },
-                    hint: const Text("Select Phone Number"),
+                    hint: const Text(
+                      "Select Phone Number",
+                      style: textStyleS14W400,
+                    ),
                     items: availableHaivaPhoneNumbers.isEmpty
                         ? [
                             const DropdownMenuItem<String>(
                               value: null,
-                              child: Text('No available numbers'),
+                              child: Text(
+                                'No available numbers',
+                                style: textStyleS14W400,
+                              ),
                             ),
                           ]
                         : availableHaivaPhoneNumbers
@@ -229,8 +240,14 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 40),
+                    ),
                     onPressed: _openBuyNumberDialog,
-                    child: const Text("Buy Number"),
+                    child: Text(
+                      "Buy Number",
+                      style: textStyleS14W400.copyWith(color: whiteColor),
+                    ),
                   ),
                 ],
               ),
@@ -262,18 +279,28 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                                 ),
                               ),
                               const SizedBox(height: 20),
-                              const Text('Account SID'),
+                              const Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Text(
+                                    'Account SID',
+                                    textAlign: TextAlign.start,
+                                  )),
                               TextField(
                                 onChanged: (text) {
                                   checkFieldsFilled();
                                 },
                                 controller: _accountSidController,
                                 decoration: InputDecoration(
+                                  isDense: true,
                                   hintText: 'ACXXXXX',
                                   hintStyle: const TextStyle(
                                     color: hintTextColor,
-                                    fontSize: 18,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w400,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(5),
@@ -298,18 +325,25 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                                 ),
                               ),
                               const SizedBox(height: 20),
-                              const Text('Auth Token'),
+                              const Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Text('Auth Token')),
                               TextField(
                                 onChanged: (text) {
                                   checkFieldsFilled();
                                 },
                                 controller: _authTokenController,
                                 decoration: InputDecoration(
+                                  isDense: true,
                                   hintText: 'Enter your Auth Token',
                                   hintStyle: const TextStyle(
                                     color: hintTextColor,
-                                    fontSize: 18,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w400,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(5),
@@ -345,7 +379,9 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                                       }
                                     : null,
                                 style: ElevatedButton.styleFrom(
-                                  minimumSize: const Size(double.infinity, 50),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  minimumSize: const Size(double.infinity, 40),
                                 ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -370,13 +406,12 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                                 agentConfigs['agent_configs']
                                         ['telephony_configs']['phone_number'] =
                                     newValue;
-                                print(agentConfigs['agent_configs']
-                                    ['telephony_configs']['phone_number']);
                                 StorageService()
                                     .createAndUpdateKeyValuePairInStorage(
                                         "phone_number", newValue);
                                 _selectedTwilioPhoneNumber = newValue;
                               });
+                              isNumberThere();
                             },
                             hint: const Text("Select Phone Number"),
                             items: availableTwilioPhoneNumbers.isEmpty
@@ -428,7 +463,8 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
     return Scaffold(
       appBar: AppBar(
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Telephony', style: TextStyle(color: Colors.white)),
+        title: const Text('Telephony',
+            style: TextStyle(color: Colors.white, fontSize: 16)),
         elevation: 10,
         actions: [
           Padding(
@@ -533,9 +569,18 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                   ),
                   const SizedBox(height: 8),
                   TabBar(
+                    indicator: const BoxDecoration(
+                      color: primaryLightColor,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: primaryColor,
+                          width: 4.0,
+                        ),
+                      ),
+                    ),
                     labelColor: primaryColor,
                     unselectedLabelColor: Colors.grey,
-                    indicatorColor: secondaryColor,
+                    indicatorColor: primaryColor,
                     indicatorWeight: 4,
                     indicatorSize: TabBarIndicatorSize.tab,
                     tabs: const [
@@ -566,31 +611,47 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
             Expanded(
               child: TabBarView(controller: _controller, children: tabBarViews),
             ),
-            const SizedBox(height: 16),
-            SafeArea(
-              child: ElevatedButton(
-                onPressed: () {
-                  context.push('/${Routes.voiceOptions.name}',
-                      extra: {'agentData': agentConfigs});
-                },
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Proceed to Voice Options'),
-                    SizedBox(width: 8),
-                    Icon(Icons.arrow_circle_right_outlined, color: whiteColor),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
           ],
         ),
       ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton(
+            onPressed: isNumberNotNull
+                ? () {
+                    context.push('/${Routes.voiceOptions.name}',
+                        extra: {'agentData': agentConfigs});
+                  }
+                : null,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              minimumSize: const Size(double.infinity, 40),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Proceed to Voice Options'),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_circle_right_outlined, color: whiteColor),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
+  }
+
+  isNumberThere() {
+    if (_selectedPhoneNumber != null || _selectedTwilioPhoneNumber != null) {
+      setState(() {
+        isNumberNotNull = true;
+      });
+    } else {
+      setState(() {
+        isNumberNotNull = false;
+      });
+    }
   }
 
   void _openBuyNumberDialog() {
@@ -647,6 +708,8 @@ class _BuyDialogState extends State<BuyDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      surfaceTintColor: whiteColor,
+      backgroundColor: whiteColor,
       title: const Text("Buy Phone Number"),
       content: SingleChildScrollView(
         child: Column(
@@ -658,27 +721,30 @@ class _BuyDialogState extends State<BuyDialog> {
             ),
             const SizedBox(height: 10),
             const Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                CountryCodePicker(
-                  onChanged: (countryCode) {
-                    setState(() {
-                      selectedCountryCode = countryCode.code!;
-                    });
-                    getOrSearchAvailableNumbers(
-                      "twilio",
-                      selectedCountryCode,
-                      '',
-                    );
-                  },
-                  initialSelection: 'US',
-                  showCountryOnly: false,
-                  showOnlyCountryWhenClosed: false,
-                  alignLeft: false,
-                  showDropDownButton: true,
-                ),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  CountryCodePicker(
+                    onChanged: (countryCode) {
+                      setState(() {
+                        selectedCountryCode = countryCode.code!;
+                      });
+                      getOrSearchAvailableNumbers(
+                        "twilio",
+                        selectedCountryCode,
+                        '',
+                      );
+                    },
+                    initialSelection: 'US',
+                    showCountryOnly: false,
+                    showOnlyCountryWhenClosed: false,
+                    alignLeft: false,
+                    showDropDownButton: true,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 10),
             Padding(
@@ -689,7 +755,7 @@ class _BuyDialogState extends State<BuyDialog> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: SizedBox(
-                      height: 32,
+                      height: 40,
                       child: TextField(
                         controller: _digitController,
                         decoration: InputDecoration(
@@ -723,24 +789,21 @@ class _BuyDialogState extends State<BuyDialog> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  SizedBox(
-                    height: 32,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 4,
-                        ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
                       ),
-                      onPressed: () {
-                        getOrSearchAvailableNumbers(
-                          "twilio",
-                          selectedCountryCode,
-                          _digitController.value.text,
-                        );
-                      },
-                      child: const Icon(Icons.search, color: whiteColor),
                     ),
+                    onPressed: () {
+                      getOrSearchAvailableNumbers(
+                        "twilio",
+                        selectedCountryCode,
+                        _digitController.value.text,
+                      );
+                    },
+                    child: const Icon(Icons.search, color: whiteColor),
                   ),
                 ],
               ),
@@ -758,7 +821,10 @@ class _BuyDialogState extends State<BuyDialog> {
                     _selectedPhoneNumberToBuy = newValue;
                   });
                 },
-                hint: const Text("Select Phone Number"),
+                hint: const Text(
+                  "Select Phone Number",
+                  style: textStyleS14W400,
+                ),
                 items: availablePhoneNumbersToBuy.isEmpty
                     ? [
                         const DropdownMenuItem<String>(
@@ -783,9 +849,14 @@ class _BuyDialogState extends State<BuyDialog> {
           onPressed: () {
             Navigator.pop(context);
           },
-          child: const Text("Cancel"),
+          child: const Align(
+              alignment: Alignment.centerLeft, child: Text("Cancel")),
         ),
         ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            minimumSize: const Size(double.infinity, 40),
+          ),
           onPressed: (_selectedPhoneNumberToBuy != null)
               ? () {
                   checkCreditsAndCallBuyNumberAPI();
@@ -864,6 +935,8 @@ class _InsufficientCreditsDialogState extends State<InsufficientCreditsDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      surfaceTintColor: whiteColor,
+      backgroundColor: whiteColor,
       title: const Text("Insufficient Credits"),
       content: SingleChildScrollView(
         child: Column(
@@ -881,8 +954,11 @@ class _InsufficientCreditsDialogState extends State<InsufficientCreditsDialog> {
               ),
             ),
             const SizedBox(height: 10),
-            const Divider(),
-            const SizedBox(height: 20),
+            const Divider(
+              height: 2,
+              color: blackColor,
+            ),
+            const SizedBox(height: 10),
             TextField(
               onChanged: (text) {
                 checkFieldsFilled();
@@ -890,11 +966,16 @@ class _InsufficientCreditsDialogState extends State<InsufficientCreditsDialog> {
               keyboardType: TextInputType.number,
               controller: creditAmountController,
               decoration: InputDecoration(
+                isDense: true,
                 hintText: 'Enter Payment Amount *',
                 hintStyle: const TextStyle(
                   color: hintTextColor,
-                  fontSize: 18,
+                  fontSize: 14,
                   fontWeight: FontWeight.w400,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(5),

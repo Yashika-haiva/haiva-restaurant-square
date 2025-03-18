@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -25,20 +26,35 @@ class _ImportProviderState extends State<ImportProvider>
   String templateId = '';
   String category = '';
   String recentConnName = "";
+  int _textIndex = 0;
+  final List<String> _texts = [
+    "Connecting to server...",
+    "Setting up your environment. This won't take long...",
+    "Almost there! Finalizing your session setup...",
+    "Preparing your workspace. Thank you for your patience...",
+    "Initializing your environment. We'll be ready in a moment...."
+  ];
 
   @override
   void initState() {
     super.initState();
     getOrgAndWSIds();
     _controller = AnimationController(
-      duration: const Duration(seconds: 2), // Duration of each flip cycle
+      duration: const Duration(seconds: 2),
       vsync: this,
-    )..repeat(
-        reverse:
-            true); // Repeats the animation and reverses it after each cycle
+    )..repeat(reverse: true);
 
-    // Animation defines the horizontal flip, alternating between 1 and -1
     _flipAnimation = Tween<double>(begin: 1, end: -1).animate(_controller);
+
+    Timer.periodic(const Duration(seconds: 5), (timer) {
+      setState(() {
+        if (_textIndex < _texts.length - 1) {
+          _textIndex++;
+        } else {
+          timer.cancel();
+        }
+      });
+    });
   }
 
   @override
@@ -51,12 +67,9 @@ class _ImportProviderState extends State<ImportProvider>
 
   getOrgAndWSIds() async {
     final response = await APIService().getOrgAndWSIds();
-    print("addProvider Response${response.body}");
-    print("addProvider ResponseCode${response.statusCode}");
     if (response.statusCode == 200) {
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final responseBody = decodedResponse;
-      print(responseBody);
       var workspace = responseBody['workspace'].firstWhere(
           (ws) => ws['name'] == "Agent for Restaurants - Square",
           orElse: () => null);
@@ -74,10 +87,6 @@ class _ImportProviderState extends State<ImportProvider>
         await storageService.createAndUpdateKeyValuePairInStorage(
             "template", templateId);
 
-        if (kDebugMode) {
-          print(
-              "Workspace ID: $workspaceId, Org ID: $orgId stored successfully.");
-        }
         checkAgent();
       } else {
         var workspace = responseBody['workspace'].firstWhere(
@@ -92,7 +101,7 @@ class _ImportProviderState extends State<ImportProvider>
 
         insertWorkSpace();
         if (kDebugMode) {
-          print("Workspace 'Default workspace' not found.");
+          print("Workspace not found.");
         }
       }
     }
@@ -100,28 +109,34 @@ class _ImportProviderState extends State<ImportProvider>
 
   checkAgent() async {
     final response = await APIService().checkAgent();
-    print("responceofWs ${response.body}");
     if (response.statusCode == 200) {
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final responseBody = decodedResponse;
-
-      if(responseBody['agent'].isNotEmpty){
+      if (responseBody['agent'].isNotEmpty) {
         String agentId = responseBody['agent'][0]['agent_id'];
         await StorageService()
             .createAndUpdateKeyValuePairInStorage("agentId", agentId);
         final inProgress = responseBody['agent'][0]['deployment_profile']
-        ['profile_info']['in_progress'];
+            ['profile_info']['in_progress'];
         final isError = responseBody['agent'][0]['deployment_profile']
-        ['profile_info']['is_error'];
+            ['profile_info']['is_error'];
         if (isError || inProgress) {
-          context.go("/${Routes.home.name}");
+          goToHome();
         } else {
-          context.go("/${Routes.dashboard.name}");
+          goToDashboard();
         }
-      } else{
+      } else {
         checkProvider();
       }
     }
+  }
+
+  goToHome() {
+    context.go("/${Routes.home.name}");
+  }
+
+  goToDashboard() {
+    context.go("/${Routes.dashboard.name}");
   }
 
   insertWorkSpace() async {
@@ -131,14 +146,14 @@ class _ImportProviderState extends State<ImportProvider>
       "allow_multiple_agents": false
     };
     final response = await APIService().insertWorkSPace(requestBody);
-    print("responceofWs ${response.body}");
+
     if (response.statusCode == 201) {
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final responseBody = decodedResponse;
-      print("responceofWs $responseBody");
+
       workspaceId = responseBody['workspace-id'];
       templateId = "restaurantAgentApp_square_$workspaceId";
-      print(workspaceId);
+
       final storageService = StorageService();
       await storageService.createAndUpdateKeyValuePairInStorage(
           'workspace_id', workspaceId);
@@ -174,7 +189,7 @@ class _ImportProviderState extends State<ImportProvider>
           } else if (text == "deploy") {
             var agentConfigs = template['agentConfigObject']['data_configs'][0]
                 ['data_sources'][0]['configs'];
-            print("configs = $agentConfigs");
+
             for (var executor in agentConfigs) {
               executor['id'] = 0;
               executor['account_id'] = 'app-haiva';
@@ -238,15 +253,10 @@ class _ImportProviderState extends State<ImportProvider>
 
   executorDeploymentAPI(requestBody, numberOfChunks) async {
     final response = await APIService().executorDeployment(requestBody);
-    print("executorDeploymentAPI Response${response.body}");
-    print("executorDeploymentAPI ResponseCode${response.statusCode}");
 
     if (response.statusCode == 200) {
       successfulExecutorDeployments++;
       if (successfulExecutorDeployments == numberOfChunks) {
-        print(
-          "All chunks deployed successfully. Proceeding to the next function.",
-        );
         await goForConnection();
       }
     }
@@ -254,8 +264,6 @@ class _ImportProviderState extends State<ImportProvider>
 
   addProviderAPI(providerPayload) async {
     final response = await APIService().addProvider(providerPayload);
-    print("addProvider Response${response.body}");
-    print("addProvider ResponseCode${response.statusCode}");
     if (response.statusCode == 201) {
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final upId = decodedResponse["upsertedId"];
@@ -265,33 +273,25 @@ class _ImportProviderState extends State<ImportProvider>
 
   getProviderIDBasedOnCategory(upID) async {
     final response = await APIService().getProviderID(category);
-    print("GetProviderID Response${response.body}");
-    print("GetProviderID ResponseCode${response.statusCode}");
     if (response.statusCode == 200) {
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final List responseBody = decodedResponse;
       List serviceProvider = responseBody[0]["serviceProvider"];
       serviceProvider.add(upID);
       patchAPI(serviceProvider);
-      print(serviceProvider);
     }
   }
 
   patchAPI(serviceProvider) async {
     final requestBody = {"serviceProvider": serviceProvider};
     final response = await APIService().patchAPI(requestBody);
-    print("Patch Response${response.body}");
-    print("Patch ResponseCode${response.statusCode}");
     if (response.statusCode == 200) {
       getAgentTemplate("deploy");
-      callSnackBar(response, "Provider Patched");
     }
   }
 
   checkProvider() async {
     final response = await APIService().checkProvider();
-    print("checkProvider Response${response.body}");
-    print("checkProvider ResponseCode${response.statusCode}");
     final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
     final List responseBody = decodedResponse;
     if (responseBody.isEmpty) {
@@ -326,18 +326,36 @@ class _ImportProviderState extends State<ImportProvider>
   Widget build(BuildContext context) {
     return Scaffold(
         body: Center(
-            child: AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Transform(
-          transform: Matrix4.rotationY(_flipAnimation.value * 3.14159),
-          // Flip horizontally
-          alignment: Alignment.center,
-          child: child, // Your logo widget
-        );
-      },
-      child: Image.asset('assets/images/haiva.png',
-          width: 100, height: 100), // Replace with your logo path
+            child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return Transform(
+              transform: Matrix4.rotationY(_flipAnimation.value * 3.14159),
+              alignment: Alignment.center,
+              child: child,
+            );
+          },
+          child: Image.asset('assets/images/haiva.png', width: 88, height: 88),
+        ),
+        const SizedBox(
+          height: 16,
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 5000),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              _texts[_textIndex],
+              textAlign: TextAlign.center,
+              key: ValueKey<int>(_textIndex),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ),
+      ],
     )));
   }
 }
