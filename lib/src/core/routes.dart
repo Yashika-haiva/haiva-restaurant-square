@@ -1,10 +1,15 @@
 import 'package:go_router/go_router.dart';
+import 'package:haivazoho/src/screens/helpers/agent_chat.dart';
+import 'package:haivazoho/src/screens/payment_success.dart';
+import 'package:haivazoho/src/service/payment_service.dart';
 import '../core/request_permissions.dart';
 
 import '../screens/connect_provider.dart';
 import '../screens/dashboard.dart';
 import '../screens/deploy_agent.dart';
 import '../screens/forms/login.dart';
+import '../screens/helpers/agent_call.dart';
+import '../screens/helpers/agent_voice.dart';
 import '../screens/helpers/edit_profile.dart';
 import '../screens/helpers/initial_loader.dart';
 import '../screens/home.dart';
@@ -14,14 +19,6 @@ import '../screens/re_deploy_agent.dart';
 import '../screens/voice_options.dart';
 import '../service/storage_service.dart';
 import '../shared/enum.dart';
-
-Future<String> isFirstLogin() async {
-  String isLogin =
-      await StorageService().getValueFromStorage('isLogin') ?? "false";
-  return isLogin == "false"
-      ? '/${Routes.requestPermissions.name}'
-      : '/${Routes.login.name}';
-}
 
 final GoRouter squareAppRoutes = GoRouter(
   restorationScopeId: 'valet_route_restore',
@@ -63,6 +60,12 @@ final GoRouter squareAppRoutes = GoRouter(
       builder: (context, state) => const Home(),
     ),
     GoRoute(
+      name: Routes.paymentSuccess.name,
+      path: "/${Routes.paymentSuccess.name}",
+      redirect: (context, state) async => await loginAuth(true, true),
+      builder: (context, state) => const PaymentSuccessPage(),
+    ),
+    GoRoute(
       name: Routes.profile.name,
       path: "/${Routes.profile.name}",
       redirect: (context, state) async => await loginAuth(true, true),
@@ -81,6 +84,12 @@ final GoRouter squareAppRoutes = GoRouter(
       builder: (context, state) => const Dashboard(),
     ),
     GoRoute(
+      name: Routes.payment.name,
+      path: "/${Routes.payment.name}",
+      redirect: (context, state) async => await loginAuth(true, true),
+      builder: (context, state) => const PaymentScreen(),
+    ),
+    GoRoute(
       name: Routes.voiceOptions.name,
       path: "/${Routes.voiceOptions.name}",
       redirect: (context, state) async => await loginAuth(true, true),
@@ -90,6 +99,36 @@ final GoRouter squareAppRoutes = GoRouter(
         return VoiceOptions(
           agentData: agentData,
         );
+      },
+    ),
+    GoRoute(
+      name: Routes.agentChat.name,
+      path: "/${Routes.agentChat.name}",
+      redirect: (context, state) async => await loginAuth(true, true),
+      builder: (context, state) {
+        var extras = state.extra as Map<String, dynamic>;
+        dynamic agentId = extras['agentId'];
+        return ChatViewScreen(agentId: agentId);
+      },
+    ),
+    GoRoute(
+      name: Routes.agentCall.name,
+      path: "/${Routes.agentCall.name}",
+      redirect: (context, state) async => await loginAuth(true, true),
+      builder: (context, state) {
+        var extras = state.extra as Map<String, dynamic>;
+        dynamic agentId = extras['agentId'];
+        return CallViewScreen(agentId: agentId);
+      },
+    ),
+    GoRoute(
+      name: Routes.agentVoice.name,
+      path: "/${Routes.agentVoice.name}",
+      redirect: (context, state) async => await loginAuth(true, true),
+      builder: (context, state) {
+        var extras = state.extra as Map<String, dynamic>;
+        dynamic agentId = extras['agentId'];
+        return VoiceViewScreen(agentId: agentId);
       },
     ),
     GoRoute(

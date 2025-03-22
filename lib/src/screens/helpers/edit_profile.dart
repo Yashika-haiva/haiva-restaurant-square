@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:provider/provider.dart';
 
+import '../../service/agent_data_provider.dart';
 import '../../service/api_service.dart';
 import '../../service/storage_service.dart';
 import '../../shared/consts.dart';
 import '../../shared/enum.dart';
+import 'get_balance.dart';
 
 class EditProfile extends StatefulWidget {
   const EditProfile({
@@ -24,10 +27,13 @@ class _EditProfileState extends State<EditProfile> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   bool isLoading = false;
-  String formattedBalance = '';
+  bool isButtonLoading = false;
+
+  // String formattedBalance = '';
   String imageUrl = "";
   String displayName = "";
   String description = "";
+  var agentData = {};
 
   @override
   void initState() {
@@ -48,6 +54,7 @@ class _EditProfileState extends State<EditProfile> {
           jsonDecode(utf8.decode(responseForAgent.bodyBytes));
       final responseBodyForAgent = decodedResponseForAgent;
       setState(() {
+        agentData = responseBodyForAgent;
         imageUrl = responseBodyForAgent['agent_configs']['image'];
         displayName = responseBodyForAgent['agent_configs']['display_name'];
         description = responseBodyForAgent['agent_configs']['description'];
@@ -56,16 +63,16 @@ class _EditProfileState extends State<EditProfile> {
       });
     }
 
-    final responseForBalance = await APIService().getBalance();
-    if (responseForBalance.statusCode == 200) {
-      final decodedResponseForBalance =
-          jsonDecode(utf8.decode(responseForBalance.bodyBytes));
-      final responseBodyForAgent = decodedResponseForBalance;
-      setState(() {
-        final balance = responseBodyForAgent['availableBalance'] ?? 0.00;
-        formattedBalance = balance.toStringAsFixed(2);
-      });
-    }
+    // final responseForBalance = await APIService().getBalance();
+    // if (responseForBalance.statusCode == 200) {
+    //   final decodedResponseForBalance =
+    //       jsonDecode(utf8.decode(responseForBalance.bodyBytes));
+    //   final responseBodyForAgent = decodedResponseForBalance;
+    //   setState(() {
+    //     final balance = responseBodyForAgent['availableBalance'] ?? 0.00;
+    //     formattedBalance = balance.toStringAsFixed(2);
+    //   });
+    // }
 
     setState(() {
       isLoading = false;
@@ -89,27 +96,26 @@ class _EditProfileState extends State<EditProfile> {
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 16.0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.account_balance_wallet,
-                    color: Colors.white, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  isLoading ? "\$0.00" : "\$$formattedBalance",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+          child: isLoading
+              ? Center(
+                  child: LoadingAnimationWidget.beat(
+                      color: primaryLightColor, size: 10))
+              : Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet,
+                          color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      BalanceWidget(),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
         ),
       ],
     );
@@ -124,6 +130,7 @@ class _EditProfileState extends State<EditProfile> {
       final responseBody = decodedResponse;
       setState(() {
         imageUrl = responseBody['Url'];
+        agentData['agent_configs']['image'] = imageUrl;
       });
     }
   }
@@ -253,52 +260,120 @@ class _EditProfileState extends State<EditProfile> {
                     const SizedBox(height: 24),
                     const Divider(),
                     const SizedBox(height: 16),
-                    // ListTile(
-                    //   leading: const Icon(Icons.record_voice_over),
-                    //   title: const Text('Voice / Telephony'),
-                    //   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    //   onTap: () {
-                    //     StorageService().createAndUpdateKeyValuePairInStorage(
-                    //         "display_name", _nameController.value.text);
-                    //     StorageService().createAndUpdateKeyValuePairInStorage(
-                    //         "description", _descriptionController.value.text);
-                    //     StorageService().createAndUpdateKeyValuePairInStorage(
-                    //         "image", imageUrl);
-                    //     context.push("/${Routes.home.name}");
-                    //   },
-                    // ),
+                    ListTile(
+                      leading: const Icon(Icons.wifi_calling_3_sharp),
+                      title: const Text('Telephony'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        StorageService().createAndUpdateKeyValuePairInStorage(
+                            "display_name", _nameController.value.text);
+                        StorageService().createAndUpdateKeyValuePairInStorage(
+                            "description", _descriptionController.value.text);
+                        StorageService().createAndUpdateKeyValuePairInStorage(
+                            "image", imageUrl);
+                        context.push("/${Routes.home.name}");
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.record_voice_over),
+                      title: const Text('Voice'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        StorageService().createAndUpdateKeyValuePairInStorage(
+                            "display_name", _nameController.value.text);
+                        StorageService().createAndUpdateKeyValuePairInStorage(
+                            "description", _descriptionController.value.text);
+                        StorageService().createAndUpdateKeyValuePairInStorage(
+                            "image", imageUrl);
+                        context.push("/${Routes.voiceOptions.name}",
+                            extra: {'agentData': agentData});
+                      },
+                    ),
                   ],
                 ),
               ),
             ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ElevatedButton(
-            onPressed: () {
-              StorageService().createAndUpdateKeyValuePairInStorage(
-                  "display_name", _nameController.value.text);
-              StorageService().createAndUpdateKeyValuePairInStorage(
-                  "description", _descriptionController.value.text);
-              StorageService()
-                  .createAndUpdateKeyValuePairInStorage("image", imageUrl);
-              context.push("/${Routes.home.name}");
-            },
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              minimumSize: const Size(double.infinity, 40),
+      bottomNavigationBar: isLoading
+          ? Center(
+              child: LoadingAnimationWidget.beat(
+                  color: primaryLightColor, size: 100))
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                    saveAgent();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    minimumSize: const Size(double.infinity, 40),
+                  ),
+                  child: isButtonLoading
+                      ? const CircularProgressIndicator()
+                      : const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Save'),
+                            SizedBox(width: 8),
+                            Icon(Icons.save_outlined, color: whiteColor),
+                          ],
+                        ),
+                ),
+                // ElevatedButton(
+                //   onPressed: () {
+                //     StorageService().createAndUpdateKeyValuePairInStorage(
+                //         "display_name", _nameController.value.text);
+                //     StorageService().createAndUpdateKeyValuePairInStorage(
+                //         "description", _descriptionController.value.text);
+                //     StorageService().createAndUpdateKeyValuePairInStorage(
+                //         "image", imageUrl);
+                //     context.push("/${Routes.home.name}");
+                //   },
+                //   style: ElevatedButton.styleFrom(
+                //     padding: const EdgeInsets.symmetric(horizontal: 16),
+                //     minimumSize: const Size(double.infinity, 40),
+                //   ),
+                //   child: const Row(
+                //     mainAxisSize: MainAxisSize.min,
+                //     children: [
+                //       Text('Proceed to Voice / Telephony'),
+                //       SizedBox(width: 8),
+                //       Icon(Icons.arrow_circle_right_outlined,
+                //           color: whiteColor),
+                //     ],
+                //   ),
+                // ),
+              ),
             ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Proceed to Voice / Telephony'),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_circle_right_outlined, color: whiteColor),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
+  }
+
+  saveAgent() async {
+    setState(() {
+      isButtonLoading = true;
+    });
+    agentData['agent_configs']['display_name'] = _nameController.value.text;
+    agentData['agent_configs']['description'] =
+        _descriptionController.value.text;
+    String agentId = await StorageService().getValueFromStorage("agentId");
+    final responseForAgent = await APIService().saveAgent(agentData, agentId);
+    if (responseForAgent.statusCode == 200) {
+      final decodedResponseForAgent =
+          jsonDecode(utf8.decode(responseForAgent.bodyBytes));
+      final responseBodyForAgent = decodedResponseForAgent;
+      print(responseBodyForAgent);
+      Provider.of<AgentDataProvider>(context, listen: false)
+          .updateImageUrl(imageUrl);
+      Provider.of<AgentDataProvider>(context, listen: false)
+          .updateDescription(_descriptionController.value.text);
+      Provider.of<AgentDataProvider>(context, listen: false)
+          .updateName(_nameController.value.text);
+      context.pop();
+    } else {
+      print(responseForAgent.body);
+    }
+    setState(() {
+      isButtonLoading = false;
+    });
   }
 }

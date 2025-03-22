@@ -3,12 +3,15 @@ import 'dart:convert';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../service/api_service.dart';
 import '../service/storage_service.dart';
+import '../service/web_view_auth.dart';
 import '../shared/consts.dart';
 import '../shared/enum.dart';
+import 'helpers/get_balance.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -29,7 +32,11 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   List<String> availableTwilioPhoneNumbers = [];
   bool _isFieldsVisible = true;
   var agentConfigs = {};
-  String formattedBalance = "\$0.00";
+  bool isSaveEnable = false;
+  bool isButtonLoading = false;
+  bool isLoading = false;
+
+  // String formattedBalance = "\$0.00";
 
   final TextEditingController _accountSidController = TextEditingController();
   final TextEditingController _authTokenController = TextEditingController();
@@ -47,6 +54,96 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
     }
   }
 
+  saveAgent() async {
+    setState(() {
+      isButtonLoading = true;
+    });
+    String agentId = await StorageService().getValueFromStorage("agentId");
+    final responseForAgent =
+        await APIService().saveAgent(agentConfigs, agentId);
+    if (responseForAgent.statusCode == 200) {
+      final decodedResponseForAgent =
+          jsonDecode(utf8.decode(responseForAgent.bodyBytes));
+      final responseBodyForAgent = decodedResponseForAgent;
+      print(responseBodyForAgent);
+      context.go("/${Routes.dashboard.name}");
+    } else {
+      print(responseForAgent.body);
+    }
+    setState(() {
+      isButtonLoading = false;
+    });
+  }
+
+  Future<void> _showLogoutConfirmationDialog() async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        surfaceTintColor: whiteColor,
+        backgroundColor: whiteColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(5.0),
+        ),
+        title: const Text(
+          'Logout',
+          style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 26,
+              color: loginBlackColor),
+        ),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(
+              fontWeight: FontWeight.w500, fontSize: 18, color: hintTextColor),
+        ),
+        actions: [
+          Center(
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5.0),
+                  ),
+                ),
+                onPressed: () async {
+                  await AuthService().logout();
+                  await StorageService().deleteStorageLogout();
+                  // StorageService().deleteAllValuesFromStorage();
+                  // StorageService()
+                  //     .createAndUpdateKeyValuePairInStorage('isFirstLogin', 'true');
+                  context.go('/');
+                },
+                child: const Text(
+                  'Yes',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      color: whiteColor),
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'No',
+                style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    color: loginBlackColor),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,9 +151,20 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
     _controller.addListener(() {
       if (!_controller.indexIsChanging) {}
     });
-    getHaivaNumbers();
-    getAgentTemplate();
-    getBalance();
+    initData();
+    // getAgentTemplate();
+    // getBalance();
+  }
+
+  initData() async {
+    setState(() {
+      isLoading = true;
+    });
+    await getHaivaNumbers();
+    await checkAgent();
+    setState(() {
+      isLoading = false;
+    });
   }
 
   getAgentTemplate() async {
@@ -69,21 +177,60 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
         String producer = template['serviceProvider']['producer'];
         if (templateName == "Agent for Restaurants" && producer == 'square') {
           agentConfigs = template['agentConfigObject'];
+          print(agentConfigs['agent_configs']['voice_configs']);
         }
       }
     }
   }
 
-  getBalance() async {
-    final responseForBalance = await APIService().getBalance();
-    if (responseForBalance.statusCode == 200) {
-      final decodedResponseForBalance =
-          jsonDecode(utf8.decode(responseForBalance.bodyBytes));
-      final responseBodyForAgent = decodedResponseForBalance;
-      setState(() {
-        final balance = responseBodyForAgent['availableBalance'] ?? 0.00;
-        formattedBalance = balance.toStringAsFixed(2);
-      });
+  // getBalance() async {
+  //   final responseForBalance = await APIService().getBalance();
+  //   if (responseForBalance.statusCode == 200) {
+  //     final decodedResponseForBalance =
+  //         jsonDecode(utf8.decode(responseForBalance.bodyBytes));
+  //     final responseBodyForAgent = decodedResponseForBalance;
+  //     setState(() {
+  //       final balance = responseBodyForAgent['availableBalance'] ?? 0.00;
+  //       formattedBalance = balance.toStringAsFixed(2);
+  //     });
+  //   }
+  // }
+
+  checkAgent() async {
+    final response = await APIService().checkAgent();
+    if (response.statusCode == 200) {
+      final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      final responseBody = decodedResponse;
+      if (responseBody['agent'].isNotEmpty) {
+        String agentId = responseBody['agent'][0]['agent_id'];
+        await StorageService()
+            .createAndUpdateKeyValuePairInStorage("agentId", agentId);
+        final inProgress = responseBody['agent'][0]['deployment_profile']
+            ['profile_info']['in_progress'];
+        final isError = responseBody['agent'][0]['deployment_profile']
+            ['profile_info']['is_error'];
+        if (isError || inProgress) {
+          getAgentTemplate();
+        } else {
+          setState(() {
+            isSaveEnable = true;
+          });
+          getAgentData(agentId);
+        }
+      } else {
+        getAgentTemplate();
+        // checkProvider();
+      }
+    }
+  }
+
+  getAgentData(agentId) async {
+    final responseForAgent = await APIService().getAgentDetails(agentId);
+    if (responseForAgent.statusCode == 200) {
+      final decodedResponseForAgent =
+          jsonDecode(utf8.decode(responseForAgent.bodyBytes));
+      final responseBodyForAgent = decodedResponseForAgent;
+      agentConfigs = responseBodyForAgent;
     }
   }
 
@@ -141,12 +288,15 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
         });
         getTwilioNumbers(authToken, sid);
       } else {
+        callSnackBar(response, "Twilio Not Active");
         agentConfigs['agent_configs']['telephony_configs']['account_sid'] = sid;
         agentConfigs['agent_configs']['telephony_configs']['auth_token'] =
             authToken;
         agentConfigs['agent_configs']['telephony_configs']
             ['is_connection_verified'] = false;
       }
+    } else {
+      callSnackBar(response, "Connection Not Established");
     }
   }
 
@@ -469,176 +619,214 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.account_balance_wallet,
-                      color: Colors.white, size: 16),
-                  const SizedBox(width: 4),
-                  Text(
-                    "\$$formattedBalance",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+            child: Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                ],
-              ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet,
+                          color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      BalanceWidget(),
+                    ],
+                  ),
+                ),
+                const SizedBox(
+                  width: 4,
+                ),
+                IconButton(
+                    onPressed: () {
+                      _showLogoutConfirmationDialog();
+                    },
+                    icon: const Icon(Icons.logout_outlined))
+              ],
             ),
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Text(
-                        "Telephony Provider",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Tooltip(
-                        message: 'Select the preferred telephony provider.',
-                        child: Icon(Icons.info, color: Colors.blue, size: 14),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButton<String>(
-                    dropdownColor: whiteColor,
-                    isExpanded: true,
-                    value: _selectedProvider,
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedProvider = newValue;
-                      });
-                    },
-                    items: <String>['Twilio'].map<DropdownMenuItem<String>>((
-                      String value,
-                    ) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(
-                          value,
-                          style:
-                              const TextStyle(color: blackColor, fontSize: 14),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Text(
-                        "Phone Number Configuration",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Tooltip(
-                        message:
-                            'Select the Twilio phone number to enable call functionality.',
-                        child: Icon(Icons.info, color: Colors.blue, size: 14),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TabBar(
-                    indicator: const BoxDecoration(
-                      color: primaryLightColor,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: primaryColor,
-                          width: 4.0,
-                        ),
-                      ),
-                    ),
-                    labelColor: primaryColor,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: primaryColor,
-                    indicatorWeight: 4,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    tabs: const [
-                      Tab(
-                        child: Text(
-                          "My Haiva Numbers",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      Tab(
-                        child: Text(
-                          "Connect to Twilio",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                    controller: _controller,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: TabBarView(controller: _controller, children: tabBarViews),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ElevatedButton(
-            onPressed: isNumberNotNull
-                ? () {
-                    context.push('/${Routes.voiceOptions.name}',
-                        extra: {'agentData': agentConfigs});
-                  }
-                : null,
-            style: ElevatedButton.styleFrom(
+      body: isLoading
+          ? Center(
+              child: LoadingAnimationWidget.beat(
+                  color: primaryLightColor, size: 100))
+          : Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              minimumSize: const Size(double.infinity, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Text(
+                              "Telephony Provider",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Tooltip(
+                              message:
+                                  'Select the preferred telephony provider.',
+                              child: Icon(Icons.info,
+                                  color: Colors.blue, size: 14),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButton<String>(
+                          dropdownColor: whiteColor,
+                          isExpanded: true,
+                          value: _selectedProvider,
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedProvider = newValue;
+                            });
+                          },
+                          items:
+                              <String>['Twilio'].map<DropdownMenuItem<String>>((
+                            String value,
+                          ) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(
+                                value,
+                                style: const TextStyle(
+                                    color: blackColor, fontSize: 14),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Text(
+                              "Phone Number Configuration",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Tooltip(
+                              message:
+                                  'Select the Twilio phone number to enable call functionality.',
+                              child: Icon(Icons.info,
+                                  color: Colors.blue, size: 14),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TabBar(
+                          indicator: const BoxDecoration(
+                            color: primaryLightColor,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: primaryColor,
+                                width: 4.0,
+                              ),
+                            ),
+                          ),
+                          labelColor: primaryColor,
+                          unselectedLabelColor: Colors.grey,
+                          indicatorColor: primaryColor,
+                          indicatorWeight: 4,
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          tabs: const [
+                            Tab(
+                              child: Text(
+                                "My Haiva Numbers",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            Tab(
+                              child: Text(
+                                "Connect to Twilio",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                          controller: _controller,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                        controller: _controller, children: tabBarViews),
+                  ),
+                ],
+              ),
             ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Proceed to Voice Options'),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_circle_right_outlined, color: whiteColor),
-              ],
+      bottomNavigationBar: isLoading
+          ? Center(
+              child: LoadingAnimationWidget.beat(
+                  color: primaryLightColor, size: 100))
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ElevatedButton(
+                  onPressed: isNumberNotNull
+                      ? () {
+                          if (isSaveEnable) {
+                            saveAgent();
+                          } else {
+                            print(agentConfigs['image']);
+                            print(agentConfigs['agent_configs']['image']);
+                            context.push('/${Routes.voiceOptions.name}',
+                                extra: {'agentData': agentConfigs});
+                          }
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    minimumSize: const Size(double.infinity, 40),
+                  ),
+                  child: isSaveEnable
+                      ? isButtonLoading
+                          ? const CircularProgressIndicator()
+                          : const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('Save'),
+                                SizedBox(width: 8),
+                                Icon(Icons.save_outlined, color: whiteColor),
+                              ],
+                            )
+                      : const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Proceed to Voice Options'),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_circle_right_outlined,
+                                color: whiteColor),
+                          ],
+                        ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -873,6 +1061,7 @@ class _BuyDialogState extends State<BuyDialog> {
     if (response.statusCode == 200) {
       buyNumberOnCredits();
     } else if (response.statusCode == 400) {
+      Navigator.of(context).pop();
       _openInsufficientCreditsDialog();
     }
   }
@@ -1015,7 +1204,7 @@ class _InsufficientCreditsDialogState extends State<InsufficientCreditsDialog> {
 
   Future<void> _launchURL(String url) async {
     final Uri launchingUrl = Uri.parse(url);
-    if (!await launchUrl(launchingUrl)) {
+    if (!await launchUrl(launchingUrl, mode: LaunchMode.inAppWebView)) {
       throw Exception('Could not launch $url');
     }
     popDialog();
@@ -1028,10 +1217,12 @@ class _InsufficientCreditsDialogState extends State<InsufficientCreditsDialog> {
   addCreditsAPI(amount) async {
     final response = await APIService().addCredits(amount);
     if (response.statusCode == 200) {
+      Navigator.pop(context);
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final responseBodyUrl = decodedResponse["url"];
       _launchURL(responseBodyUrl);
     } else if (response.statusCode == 400) {
+      Navigator.pop(context);
       callSnackBar(response);
     }
   }

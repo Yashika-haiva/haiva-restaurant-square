@@ -1,11 +1,10 @@
-
 import 'package:flutter/material.dart';
+import 'package:haivazoho/src/service/agent_data_provider.dart';
+import 'package:haivazoho/src/service/web_view_auth.dart';
 import 'package:provider/provider.dart';
 
 import 'core/agent_theme.dart';
 import 'core/routes.dart';
-import 'service/auth_service.dart';
-import 'shared/provider/agent_provider.dart';
 
 class Square extends StatelessWidget {
   const Square({super.key});
@@ -13,8 +12,8 @@ class Square extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => AgentProvider(),
-      child: Consumer<AgentProvider>(
+      create: (context) => AgentDataProvider(),
+      child: Consumer<AgentDataProvider>(
         builder: (context, agentProvider, child) {
           return MultiProvider(
             providers: [Provider<AuthService>(create: (_) => AuthService())],

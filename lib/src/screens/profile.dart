@@ -181,7 +181,7 @@ class _ProfileState extends State<Profile> {
                                     ),
                                   ),
                                   onPressed: () {
-                                    StorageService().deleteTokenStorage();
+                                    StorageService().deleteStorageLogout();
                                     // StorageService()
                                     //     .deleteAllValuesFromStorage();
                                     // StorageService()

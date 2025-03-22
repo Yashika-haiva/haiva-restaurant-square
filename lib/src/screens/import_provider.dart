@@ -47,13 +47,15 @@ class _ImportProviderState extends State<ImportProvider>
     _flipAnimation = Tween<double>(begin: 1, end: -1).animate(_controller);
 
     Timer.periodic(const Duration(seconds: 5), (timer) {
-      setState(() {
+      if(mounted) {
+        setState(() {
         if (_textIndex < _texts.length - 1) {
           _textIndex++;
         } else {
           timer.cancel();
         }
       });
+      }
     });
   }
 
@@ -121,7 +123,7 @@ class _ImportProviderState extends State<ImportProvider>
         final isError = responseBody['agent'][0]['deployment_profile']
             ['profile_info']['is_error'];
         if (isError || inProgress) {
-          goToHome();
+          goForConnection();
         } else {
           goToDashboard();
         }
@@ -254,6 +256,7 @@ class _ImportProviderState extends State<ImportProvider>
   executorDeploymentAPI(requestBody, numberOfChunks) async {
     final response = await APIService().executorDeployment(requestBody);
 
+    print("exe ${response.body}");
     if (response.statusCode == 200) {
       successfulExecutorDeployments++;
       if (successfulExecutorDeployments == numberOfChunks) {
@@ -264,6 +267,7 @@ class _ImportProviderState extends State<ImportProvider>
 
   addProviderAPI(providerPayload) async {
     final response = await APIService().addProvider(providerPayload);
+    print("add ${response.body}");
     if (response.statusCode == 201) {
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final upId = decodedResponse["upsertedId"];
@@ -273,18 +277,21 @@ class _ImportProviderState extends State<ImportProvider>
 
   getProviderIDBasedOnCategory(upID) async {
     final response = await APIService().getProviderID(category);
+    print("get ${response.body}");
     if (response.statusCode == 200) {
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final List responseBody = decodedResponse;
       List serviceProvider = responseBody[0]["serviceProvider"];
+      final id = "responseBody[0][id]";
       serviceProvider.add(upID);
-      patchAPI(serviceProvider);
+      patchAPI(serviceProvider, id);
     }
   }
 
-  patchAPI(serviceProvider) async {
+  patchAPI(serviceProvider, id) async {
     final requestBody = {"serviceProvider": serviceProvider};
-    final response = await APIService().patchAPI(requestBody);
+    final response = await APIService().patchAPI(requestBody, id);
+    print("pat ${response.body}");
     if (response.statusCode == 200) {
       getAgentTemplate("deploy");
     }

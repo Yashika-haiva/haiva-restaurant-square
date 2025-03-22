@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:haivazoho/src/service/balance.dart';
+import 'package:haivazoho/src/screens/helpers/get_balance.dart';
+import 'package:provider/provider.dart';
 import '../screens/side_nav_bar.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../service/agent_data_provider.dart';
 import '../service/api_service.dart';
-import '../service/get_balance.dart';
-import '../service/mongoDb.dart';
 import '../service/storage_service.dart';
 import '../shared/consts.dart';
 import '../shared/enum.dart';
@@ -19,23 +19,39 @@ class Dashboard extends StatefulWidget {
   State<Dashboard> createState() => _DashboardState();
 }
 
-class _DashboardState extends State<Dashboard> {
+class _DashboardState extends State<Dashboard> with WidgetsBindingObserver {
   var size, height, width;
   int conversationCount = 0;
   int transcriptsCount = 0;
   bool isLoading = false;
-  String formattedBalance = '';
-  String imageUrl = "";
-  String displayName = "";
-  String description = "";
+
+  // String formattedBalance = '';
+  // String imageUrl = "";
+  // String displayName = "";
+  // String description = "";
   bool isTextChat = false;
   bool isCall = false;
   bool isVoiceChat = false;
+  String agentId = "";
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     getConversationAndTranscriptsCount();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      getConversationAndTranscriptsCount();
+    }
   }
 
   getConversationAndTranscriptsCount() async {
@@ -45,8 +61,9 @@ class _DashboardState extends State<Dashboard> {
 
     try {
       String wsId = await StorageService().getValueFromStorage("workspace_id");
-      String agentId = await StorageService().getValueFromStorage("agentId");
+      agentId = await StorageService().getValueFromStorage("agentId");
       final response = await APIService().getConversationCount(wsId, agentId);
+      print(wsId);
       print(response.body);
       if (response.statusCode == 200) {
         final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
@@ -75,9 +92,17 @@ class _DashboardState extends State<Dashboard> {
             jsonDecode(utf8.decode(responseForAgent.bodyBytes));
         final responseBodyForAgent = decodedResponseForAgent;
         setState(() {
-          imageUrl = responseBodyForAgent['agent_configs']['image'];
-          displayName = responseBodyForAgent['agent_configs']['display_name'];
-          description = responseBodyForAgent['agent_configs']['description'];
+          String newImageUrl = responseBodyForAgent['agent_configs']['image'];
+          Provider.of<AgentDataProvider>(context, listen: false)
+              .updateImageUrl(newImageUrl);
+          String newDisplayName =
+              responseBodyForAgent['agent_configs']['display_name'];
+          Provider.of<AgentDataProvider>(context, listen: false)
+              .updateName(newDisplayName);
+          String newDescription =
+              responseBodyForAgent['agent_configs']['description'];
+          Provider.of<AgentDataProvider>(context, listen: false)
+              .updateDescription(newDescription);
           isCall = responseBodyForAgent['agent_configs']['telephony_configs']
               ['enable_call'];
           isTextChat = responseBodyForAgent['agent_configs']
@@ -87,17 +112,17 @@ class _DashboardState extends State<Dashboard> {
         });
       }
 
-      final responseForBalance = await APIService().getBalance();
-      print(responseForBalance.body);
-      if (responseForBalance.statusCode == 200) {
-        final decodedResponseForBalance =
-            jsonDecode(utf8.decode(responseForBalance.bodyBytes));
-        final responseBodyForAgent = decodedResponseForBalance;
-        setState(() {
-          final balance = responseBodyForAgent['availableBalance'] ?? 0.00;
-          formattedBalance = balance.toStringAsFixed(2);
-        });
-      }
+      // final responseForBalance = await APIService().getBalance();
+      // print(responseForBalance.body);
+      // if (responseForBalance.statusCode == 200) {
+      //   final decodedResponseForBalance =
+      //       jsonDecode(utf8.decode(responseForBalance.bodyBytes));
+      //   final responseBodyForAgent = decodedResponseForBalance;
+      //   setState(() {
+      //     final balance = responseBodyForAgent['availableBalance'] ?? 0.00;
+      //     formattedBalance = balance.toStringAsFixed(2);
+      //   });
+      // }
     } catch (e) {
       // Handle error
     } finally {
@@ -173,7 +198,6 @@ class _DashboardState extends State<Dashboard> {
                   _buildAnalyticsCards(),
                   // const SizedBox(height: 24),
                   // _buildRecentActivitySection(),
-                  // CreditsBalanceWidget(),
                 ],
               ),
             ),
@@ -233,27 +257,26 @@ class _DashboardState extends State<Dashboard> {
         ),
         Padding(
           padding: const EdgeInsets.only(right: 16.0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.account_balance_wallet,
-                    color: Colors.white, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  isLoading? "\$0.00":"\$$formattedBalance",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+          child: isLoading
+              ? Center(
+                  child: LoadingAnimationWidget.beat(
+                      color: primaryLightColor, size: 10))
+              : Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet,
+                          color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      BalanceWidget(),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
         ),
       ],
     );
@@ -263,11 +286,11 @@ class _DashboardState extends State<Dashboard> {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Stack(
-          children: [
-            Column(
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
               children: [
                 Row(
                   children: [
@@ -282,9 +305,14 @@ class _DashboardState extends State<Dashboard> {
                           ),
                         ],
                       ),
-                      child: CircleAvatar(
-                        radius: 40,
-                        backgroundImage: NetworkImage(imageUrl),
+                      child: Consumer<AgentDataProvider>(
+                        builder: (context, balanceProvider, child) {
+                          return CircleAvatar(
+                            radius: 40,
+                            backgroundImage:
+                                NetworkImage(balanceProvider.imageUrl),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 20),
@@ -292,12 +320,16 @@ class _DashboardState extends State<Dashboard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            displayName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Consumer<AgentDataProvider>(
+                            builder: (context, balanceProvider, child) {
+                              return Text(
+                                balanceProvider.displayName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -308,12 +340,16 @@ class _DashboardState extends State<Dashboard> {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            description,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[700],
-                            ),
+                          Consumer<AgentDataProvider>(
+                            builder: (context, balanceProvider, child) {
+                              return Text(
+                                balanceProvider.description,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[700],
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -333,51 +369,81 @@ class _DashboardState extends State<Dashboard> {
                 ),
               ],
             ),
-            Positioned(
-                top: -8,
-                left: width - 124,
-                child: IconButton(
-                    onPressed: () {
-                      context.push('/${Routes.editProfile.name}');
-                    },
-                    icon: const Icon(
-                      Icons.edit,
-                      color: primaryColor,
-                      size: 26,
-                    ))),
-          ],
-        ),
+          ),
+          Positioned(
+              top: 10,
+              left: width - 92,
+              child: IconButton(
+                  onPressed: () {
+                    context.push('/${Routes.editProfile.name}');
+                  },
+                  icon: const Icon(
+                    Icons.edit,
+                    color: primaryColor,
+                    size: 26,
+                  ))),
+          // Positioned(
+          //     bottom: 10,
+          //     left: width - 92,
+          //     child: IconButton(
+          //         onPressed: () {
+          //           getConversationAndTranscriptsCount();
+          //         },
+          //         icon: const Icon(
+          //           Icons.refresh,
+          //           color: primaryColor,
+          //           size: 26,
+          //         ))),
+        ],
       ),
     );
   }
 
   Widget _buildFeatureChip(IconData icon, String label, bool enable) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: enable
-            ? bubbleGreen.withOpacity(0.1)
-            : primaryColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: enable ? bubbleGreen : primaryColor,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
+    return InkWell(
+      onTap: () {
+        switch (label) {
+          case "Chat":
+            context
+                .push('/${Routes.agentChat.name}', extra: {'agentId': agentId});
+            break;
+          case 'Voice':
+            context.push('/${Routes.agentVoice.name}',
+                extra: {'agentId': agentId});
+            break;
+          case 'Call':
+            context
+                .push('/${Routes.agentCall.name}', extra: {'agentId': agentId});
+            break;
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: enable
+              ? bubbleGreen.withOpacity(0.1)
+              : primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
               color: enable ? bubbleGreen : primaryColor,
-              fontWeight: FontWeight.w500,
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: enable ? bubbleGreen : primaryColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -568,32 +634,3 @@ class _DashboardState extends State<Dashboard> {
 //   );
 // }
 }
-
-// class DataList extends StatelessWidget {
-//   @override
-//   Widget build(BuildContext context) {
-//     return FutureBuilder<List<MyData>>(
-//       future: getData(),
-//       builder: (context, snapshot) {
-//         if (snapshot.connectionState == ConnectionState.waiting) {
-//           return CircularProgressIndicator();
-//         } else if (snapshot.hasError) {
-//           return Text('Error: ${snapshot.error}');
-//         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-//           return Text('No data found.');
-//         } else {
-//           final data = snapshot.data!;
-//           return ListView.builder(
-//             itemCount: data.length,
-//             itemBuilder: (context, index) {
-//               return ListTile(
-//                 title: Text(data[index].name),
-//                 subtitle: Text('Age: ${data[index].age}'),
-//               );
-//             },
-//           );
-//         }
-//       },
-//     );
-//   }
-// }

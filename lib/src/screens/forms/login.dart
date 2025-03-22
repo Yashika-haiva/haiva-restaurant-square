@@ -9,6 +9,7 @@ import "package:provider/provider.dart";
 
 import "../../service/auth_service.dart";
 import "../../service/storage_service.dart";
+import "../../service/web_view_auth.dart";
 import "../../shared/consts.dart";
 import "../../shared/enum.dart";
 
@@ -81,7 +82,7 @@ class _LoginState extends State<Login> {
               const SizedBox(height: 20),
               const Text(
                 textAlign: TextAlign.center,
-                'Haiva Agent for Restaurants Integrated with Square',
+                'AI-driven efficiency for restaurants on Square—simplify operations, increase sales, and enhance customer engagement.',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -99,9 +100,13 @@ class _LoginState extends State<Login> {
                     setState(() {
                       isLoading = true;
                     });
-                    await authService.login();
-                    if (await authService.isAuthenticated()) {
+                    bool success = await authService.login();
+                    if (success) {
                       goToImport();
+                    }else {
+                      setState(() {
+                        isLoading = false;
+                      });
                     }
                     // StorageService().deleteAllValuesFromStorage();
                   },

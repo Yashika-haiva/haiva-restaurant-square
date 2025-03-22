@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-
 import '../service/storage_service.dart';
 import 'package:http/http.dart' as http;
 
@@ -30,10 +29,9 @@ class APIService {
       };
 
   Future<Map<String, String>> headersWithAuthImage() async => {
-    'Content-Type': 'application/json; charset=UTF-8',
-    'Authorization': await StorageService().token ?? "",
-  };
-
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': await StorageService().token ?? "",
+      };
 
   Future<http.Response> getOrgAndWSIds() async => await http.get(
         Uri.parse(
@@ -86,7 +84,7 @@ class APIService {
       ),
       headers: await headersWithAuth());
 
-  Future<http.Response> patchAPI(requestBody) async => await http.patch(
+  Future<http.Response> patchAPI(requestBody, id) async => await http.patch(
         Uri.parse(
           "https://services.apiplatform.io/v1/data/services/services/producerCategories/5",
         ),
@@ -184,7 +182,8 @@ class APIService {
       );
 
   Future<http.Response> insertAvatar(String workspaceId, File imageFile) async {
-    var uri = Uri.parse("https://app-haiva.gateway.apiplatform.io/v1/insertAvatar");
+    var uri =
+        Uri.parse("https://app-haiva.gateway.apiplatform.io/v1/insertAvatar");
 
     // Create a multipart request
     var request = http.MultipartRequest('POST', uri);
@@ -198,12 +197,8 @@ class APIService {
     // Add the file
     var stream = http.ByteStream(imageFile.openRead());
     var length = await imageFile.length();
-    var multipartFile = http.MultipartFile(
-        'avatarFile',
-        stream,
-        length,
-        filename: imageFile.path.split('/').last
-    );
+    var multipartFile = http.MultipartFile('avatarFile', stream, length,
+        filename: imageFile.path.split('/').last);
     request.files.add(multipartFile);
 
     // Send the request
@@ -225,6 +220,15 @@ class APIService {
       await http.post(
         Uri.parse(
           "https://app-haiva.gateway.apiplatform.io/v1/deployHaivaAgent?workspaceId=$wsId&agentId=$agentId",
+        ),
+        headers: await headersWithAuthForConnection(),
+        body: jsonEncode(requestBody),
+      );
+
+  Future<http.Response> saveAgent(requestBody, agentId) async =>
+      await http.post(
+        Uri.parse(
+          "https://app-haiva.gateway.apiplatform.io/v2/saveHaivaAgentConfig?agentId=$agentId",
         ),
         headers: await headersWithAuthForConnection(),
         body: jsonEncode(requestBody),

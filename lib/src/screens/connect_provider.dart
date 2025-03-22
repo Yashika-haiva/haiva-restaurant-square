@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../service/api_service.dart';
 import '../service/storage_service.dart';
+import '../service/web_view_auth.dart';
 import '../shared/consts.dart';
 import '../shared/enum.dart';
 
@@ -62,8 +64,17 @@ class _ConnectProviderState extends State<ConnectProvider>
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final responseBody = decodedResponse;
       if (responseBody.isNotEmpty) {
-        if (responseBody[0]['name'] != null) {
-          goToHome();
+        var lastObject = responseBody.last;
+        if (lastObject['name'] != null) {
+          print("Data ${response.body}");
+          print(responseBody[0]['name']);
+          bool hasAccessToken = lastObject['credentials']
+              .any((cred) => cred['key'] == 'access_token');
+          if (hasAccessToken) {
+            await StorageService().createAndUpdateKeyValuePairInStorage(
+                "recentConnName", lastObject['name']);
+            goToHome();
+          }
         }
       }
     }
@@ -76,10 +87,88 @@ class _ConnectProviderState extends State<ConnectProvider>
     }
   }
 
+  Future<void> _showLogoutConfirmationDialog() async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        surfaceTintColor: whiteColor,
+        backgroundColor: whiteColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(5.0),
+        ),
+        title: const Text(
+          'Logout',
+          style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 26,
+              color: loginBlackColor),
+        ),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(
+              fontWeight: FontWeight.w500, fontSize: 18, color: hintTextColor),
+        ),
+        actions: [
+          Center(
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5.0),
+                  ),
+                ),
+                onPressed: () async {
+                  await AuthService().logout();
+                  await StorageService().deleteStorageLogout();
+                  // StorageService().deleteAllValuesFromStorage();
+                  // StorageService()
+                  //     .createAndUpdateKeyValuePairInStorage('isFirstLogin', 'true');
+                  context.go('/');
+                },
+                child: const Text(
+                  'Yes',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      color: whiteColor),
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'No',
+                style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    color: loginBlackColor),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     checkConnection();
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+              onPressed: () {
+                _showLogoutConfirmationDialog();
+              },
+              icon: const Icon(Icons.logout_outlined))
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -116,7 +205,16 @@ class _ConnectProviderState extends State<ConnectProvider>
                     firstChild: _buildQuickConnectOption(),
                     secondChild: _buildAdvancedConnectOption(),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "or",
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   TextButton(
                     onPressed: () {
                       setState(() {
@@ -142,7 +240,7 @@ class _ConnectProviderState extends State<ConnectProvider>
                         Text(
                           _isFieldsVisible
                               ? "Quick Connect"
-                              : "Advanced (Client Credentials)",
+                              : "Connect with Clint-Id/Secret",
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -213,7 +311,7 @@ class _ConnectProviderState extends State<ConnectProvider>
                 Icon(Icons.bolt, size: 16),
                 SizedBox(width: 4),
                 Text(
-                  'Connect to Square',
+                  'Sign-in to Square',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -397,6 +495,7 @@ class _ConnectProviderState extends State<ConnectProvider>
       final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
       final responseBody = decodedResponse[0]['authAttributes'];
       String orgID = await StorageService().getValueFromStorage("org_id");
+      print(orgID);
       String wsID = await StorageService().getValueFromStorage("workspace_id");
       String connectionID = "${DateTime.now().millisecondsSinceEpoch}";
 
@@ -457,6 +556,11 @@ class _ConnectProviderState extends State<ConnectProvider>
       final String consoleUrl =
           '$baseUrl?org_id=$orgID&workspace_id=$wsID&connector_name=$connectionId&provider=$template&redirect_url=$encodedRedirectUrl';
 
+      // Navigator.of(context).push(
+      //   MaterialPageRoute(
+      //     builder: (context) => AuthWebView(url: consoleUrl),
+      //   ),
+      // );
       _launchURL(consoleUrl);
     } else {
       callSnackBar(response);
@@ -475,3 +579,50 @@ class _ConnectProviderState extends State<ConnectProvider>
     );
   }
 }
+
+// class AuthWebView extends StatefulWidget {
+//   final String url;
+//
+//   const AuthWebView({required this.url, Key? key}) : super(key: key);
+//
+//   @override
+//   State<AuthWebView> createState() => _AuthWebViewState();
+// }
+//
+// class _AuthWebViewState extends State<AuthWebView> {
+//   late final WebViewController _controller;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _controller = WebViewController()
+//       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+//       ..setNavigationDelegate(NavigationDelegate(
+//         onNavigationRequest: (NavigationRequest request) {
+//           print("req ${request.url}");
+//           Uri uri = Uri.parse(request.url);
+//           print("yrii ${uri}");
+//           // if (request.url.startsWith('com.haiva.auth:/callback')) {
+//           //   Uri uri = Uri.parse(request.url);
+//           //   String? authCode = uri.queryParameters['code'];
+//           //   if (authCode != null) {
+//           //     Future.delayed(const Duration(milliseconds: 5000), () {
+//           //       Navigator.pop(context, authCode);
+//           //       return NavigationDecision.prevent;
+//           //     });
+//           //   }
+//           // }
+//           return NavigationDecision.navigate;
+//         },
+//       ))
+//       ..loadRequest(Uri.parse(widget.url));
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//         body: WebViewWidget(
+//       controller: _controller,
+//     ));
+//   }
+// }

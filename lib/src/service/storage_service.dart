@@ -39,8 +39,9 @@ class StorageService {
     await storage.delete(key: key);
   }
 
-  deleteTokenStorage() async {
-    await storage.delete(key: "access_token");
+  deleteStorageLogout() async {
+    deleteAllValuesFromStorage();
+    await createAndUpdateKeyValuePairInStorage('isFirstLogin', 'true');
   }
 
   deleteAllValuesFromStorage() async {

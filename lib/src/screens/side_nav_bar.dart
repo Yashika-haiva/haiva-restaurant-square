@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../service/agent_data_provider.dart';
 import '../service/auth_service.dart';
 import '../service/storage_service.dart';
+import '../service/web_view_auth.dart';
 import '../shared/consts.dart';
 import '../shared/enum.dart';
 
@@ -55,7 +58,7 @@ class _SideNavBarState extends State<SideNavBar> with RestorationMixin {
                 ),
                 onPressed: () async {
                   await AuthService().logout();
-                  await StorageService().deleteTokenStorage();
+                  await StorageService().deleteStorageLogout();
                   // StorageService().deleteAllValuesFromStorage();
                   // StorageService()
                   //     .createAndUpdateKeyValuePairInStorage('isFirstLogin', 'true');
@@ -111,23 +114,32 @@ class _SideNavBarState extends State<SideNavBar> with RestorationMixin {
                     onTap: () {
                       context.push('/${Routes.editProfile.name}');
                     },
-                    leading: ClipOval(
-                      child: Image.asset(
-                        "assets/images/no-profile.png",
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.cover,
-                      ),
+                    leading: Consumer<AgentDataProvider>(
+                      builder: (context, balanceProvider, child) {
+                        return ClipOval(
+                          child: Image.network(
+                            balanceProvider.imageUrl,
+                            width: 56,
+                            height: 56,
+                            fit: BoxFit.cover,
+                          ),
+                        );
+                      },
                     ),
                     title: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          "Agent for Restaurant",
-                          style: textStyleS24W600.copyWith(color: Colors.white),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Consumer<AgentDataProvider>(
+                          builder: (context, balanceProvider, child) {
+                            return Text(
+                              balanceProvider.displayName,
+                              style: textStyleS24W600.copyWith(
+                                  color: Colors.white),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          },
                         ),
                       ],
                     ),
